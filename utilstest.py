@@ -25,8 +25,8 @@ async def parse_test():
         print("    LLM TRANSCRIPT VIEW")
         print("="*30)
         
-        # This shows exactly what is sent to the LLM
-        transcript = llm_client._format_prompt(parsed)
+        # Now we call the transcript formatter from utils
+        transcript = utils.format_transcript(parsed)
         print(transcript)
         print("="*30 + "\n")
 
