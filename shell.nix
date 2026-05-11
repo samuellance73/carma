@@ -7,6 +7,7 @@ pkgs.mkShell {
     pkgs.python3Packages.python-dotenv
     pkgs.python3Packages.discordpy 
     pkgs.python3Packages.curl-cffi 
+    pkgs.python3Packages.google-genai
 
   ];
 
