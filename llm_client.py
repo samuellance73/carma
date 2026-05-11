@@ -21,6 +21,7 @@ _client = genai.Client(api_key=config.GEMINI_API_KEY)
 def ask(
     prompt: str,
     *,
+    images: list[dict] | None = None,
     system: str | None = None,
     systemprompt: str | None = None,
     history: list[dict] | None = None,
@@ -28,10 +29,11 @@ def ask(
     temperature: float = 1.0,
     max_tokens: int = 1024,
 ) -> str:
-    """Send a text prompt to Gemini and return the response text.
+    """Send a text prompt and optional images to Gemini and return the response text.
 
     Args:
         prompt:      The text message / transcript to send.
+        images:      Optional list of dicts with 'data' (bytes) and 'mime_type'.
         system:      Optional system instruction to set model behaviour.
         systemprompt: Alias for 'system'.
         history:     Optional prior conversation turns.
@@ -45,7 +47,7 @@ def ask(
     # Handle aliases
     system_instruction = system or systemprompt
 
-    config = types.GenerateContentConfig(
+    config_params = types.GenerateContentConfig(
         temperature=temperature,
         max_output_tokens=max_tokens,
         system_instruction=system_instruction,
@@ -60,10 +62,24 @@ def ask(
                 parts=[types.Part(text=turn['text'])],
             )
         )
+    
+    # Current turn
+    parts = [types.Part(text=prompt)]
+    if images:
+        for img in images:
+            parts.append(
+                types.Part(
+                    inline_data=types.Blob(
+                        data=img['data'],
+                        mime_type=img['mime_type']
+                    )
+                )
+            )
+
     contents.append(
         types.Content(
             role='user',
-            parts=[types.Part(text=prompt)],
+            parts=parts,
         )
     )
 
@@ -73,7 +89,7 @@ def ask(
         response = _client.models.generate_content(
             model=model,
             contents=contents,
-            config=config,
+            config=config_params,
         )
         return response.text
     except Exception as e:

@@ -3,6 +3,7 @@ import asyncio
 import random
 import config
 from utils import calculate_typing_delay
+from discord.http import Route
 
 class DiscordWrapper(discord.Client):
     """
@@ -18,11 +19,32 @@ class DiscordWrapper(discord.Client):
         messages = [msg async for msg in channel.history(limit=limit)]
         return messages
 
+    async def search_discord_gifs(self, query: str) -> str | None:
+        """Search Discord's internal GIF provider (no API key needed)."""
+        try:
+            # Discord's internal endpoint for GIF search
+            data = await self.http.request(
+                Route('GET', '/gifs/search'),
+                params={'q': query, 'limit': 20, 'media_format': 'mp4'}
+            )
+            
+            # The structure is a list of GIF objects
+            if data and len(data) > 0:
+                # Pick a random GIF from the first 8 results, but favor the top ones
+                # min(rand, rand) effectively skews the distribution toward 0
+                max_idx = min(len(data), 8)
+                idx = min(random.randint(0, max_idx - 1), random.randint(0, max_idx - 1))
+                return data[idx].get('url')
+        except Exception as e:
+            print(f"Internal GIF search failed: {e}")
+        return None
+
     async def send_message(
         self,
         channel_id: int | str,
         content: str,
         *,
+        gif_url: str | None = None,
         reply_to_message_id: int | str | None = None,
         initial_delay_ms: int = 0
     ) -> None:
@@ -30,8 +52,10 @@ class DiscordWrapper(discord.Client):
         Send a message, optionally as a reply. 
         Supports splitting by '|' for multi-message bursts with typing indicators.
         """
-        bursts = [b.strip() for b in content.split("|") if b.strip()]
-        if not bursts:
+        # Ensure content is a string even if None was passed
+        safe_content = content or ""
+        bursts = [b.strip() for b in safe_content.split("|") if b.strip()]
+        if not bursts and not gif_url:
             return
 
         channel = await self.fetch_channel(int(channel_id))
@@ -71,3 +95,10 @@ class DiscordWrapper(discord.Client):
             else:
                 await channel.send(burst)
                 print(f"Sent: {burst}")
+
+        # 3. Send GIF if provided
+        if gif_url:
+            # Small human delay before sending the GIF
+            await asyncio.sleep(random.uniform(1.0, 2.0))
+            await channel.send(gif_url)
+            print(f"Sent GIF: {gif_url}")

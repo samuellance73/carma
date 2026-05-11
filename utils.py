@@ -18,12 +18,22 @@ def parse_discord_messages(messages) -> list[dict]:
         if msg.type not in VALID_TYPES:
             continue
             
+        attachments = []
+        for attachment in msg.attachments:
+            if attachment.content_type and attachment.content_type.startswith('image/'):
+                attachments.append({
+                    'url': attachment.url,
+                    'content_type': attachment.content_type,
+                    'filename': attachment.filename
+                })
+
         parsed.append({
             'id': str(msg.id),
             'author': msg.author.display_name,
             'content': msg.content,
             'timestamp': msg.created_at.isoformat(),
             'reply_to': str(msg.reference.message_id) if msg.reference and msg.reference.message_id else None,
+            'attachments': attachments
         })
 
     parsed.reverse()
@@ -47,8 +57,14 @@ def format_transcript(messages: list[dict]) -> str:
             except:
                 pass
 
+        attachments = msg.get('attachments', [])
+        attachment_info = ""
+        if attachments:
+            filenames = [a['filename'] for a in attachments]
+            attachment_info = f" (Attachments: {', '.join(filenames)})"
+
         reply_info = f" (replying to {reply_to})" if reply_to else ""
-        formatted.append(f"[{msg_id}] {time_str}{author}{reply_info}: {content}")
+        formatted.append(f"[{msg_id}] {time_str}{author}{reply_info}: {content}{attachment_info}")
         
     return "\n".join(formatted)
 
@@ -98,7 +114,8 @@ def parse_llm_response(raw_response: str, message_id: str = None) -> dict:
         return {
             "content": data.get("message", ""),
             "reply": reply_target,
-            "delay_ms": data.get("delay_ms", 0)
+            "delay_ms": data.get("delay_ms", 0),
+            "gif_query": data.get("gif_query")
         }
     except Exception as e:
         import logging
