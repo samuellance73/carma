@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 
 from discord_client import DiscordWrapper
+from utils import parse_discord_messages
 
 load_dotenv()
 
@@ -21,7 +22,8 @@ async def main():
         print(f"Logged in as {client.user}")
         
         # Fetch recent messages so we have a real message ID to reply to
-        messages = await client.parse_messages(CHANNEL_ID, limit=5)
+        raw_messages = await client.get_all_messages(CHANNEL_ID, limit=5)
+        messages = parse_discord_messages(raw_messages)
         
         if messages:
             latest = messages[-1]  # newest message (list is oldest→newest)

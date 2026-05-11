@@ -26,7 +26,7 @@ _client = genai.Client(api_key=GEMINI_API_KEY)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def _format_prompt(prompt: str | list[dict]) -> str:
-    """Convert prompt to string if it's a list of message dicts."""
+    """Convert prompt to a clean transcript string if it's a list of message dicts."""
     if isinstance(prompt, str):
         return prompt
     
@@ -35,7 +35,20 @@ def _format_prompt(prompt: str | list[dict]) -> str:
         for msg in prompt:
             author = msg.get('author', 'Unknown')
             content = msg.get('content', '')
-            formatted.append(f"{author}: {content}")
+            msg_id = msg.get('id', 'UnknownID')
+            reply_to = msg.get('reply_to')
+            
+            # Simple HH:MM timestamp
+            time_str = ""
+            if 'timestamp' in msg:
+                try:
+                    time_str = f"[{msg['timestamp'].split('T')[1][:5]}] "
+                except:
+                    pass
+
+            reply_info = f" (replying to {reply_to})" if reply_to else ""
+            formatted.append(f"{time_str}[{msg_id}]{reply_info} {author}: {content}")
+            
         return "\n".join(formatted)
     
     return str(prompt)
@@ -110,5 +123,3 @@ def ask(
         logger.error(f"Request details: model={model}, config={config}")
         # Re-raise to let the caller handle it if needed, but we've logged it.
         raise
-
-

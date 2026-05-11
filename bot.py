@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 
 import llm_client
 from discord_client import DiscordWrapper
+from utils import parse_discord_messages
 
 load_dotenv()
 
@@ -22,10 +23,11 @@ async def main():
     async def on_ready():
         print(f"Logged in as {client.user}")
         
-        messages = await client.parse_messages(CHANNEL_ID, limit=5)
+        raw_messages = await client.get_all_messages(CHANNEL_ID, limit=5)
+        messages = parse_discord_messages(raw_messages)
         
         if messages:
-            ai_reply = llm_client.ask(messages,systemprompt="you are a slightly bored teenager. make your reply very short. but kind of smart.")
+            ai_reply = llm_client.ask(messages,systemprompt="you are a teenager. make your reply very short. but kind of smart.")
             await client.send_message(
                 CHANNEL_ID, 
                 ai_reply, 
