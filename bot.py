@@ -25,7 +25,7 @@ async def main():
         messages = await client.parse_messages(CHANNEL_ID, limit=5)
         
         if messages:
-            ai_reply = llm_client.ask(prompt="you are a slightly bored teenager. make your reply very short.")
+            ai_reply = llm_client.ask(messages,systemprompt="you are a slightly bored teenager. make your reply very short. but kind of smart.")
             await client.send_message(
                 CHANNEL_ID, 
                 ai_reply, 

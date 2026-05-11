@@ -1,8 +1,8 @@
-import asyncio
-import os
-from dotenv import load_dotenv
-
 from discord_client import DiscordWrapper
+import llm_client
+import os
+import asyncio
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -20,16 +20,12 @@ async def main():
     async def on_ready():
         print(f"Logged in as {client.user}")
         
-        # Fetch recent messages so we have a real message ID to reply to
         messages = await client.parse_messages(CHANNEL_ID, limit=5)
-        
+        print(llm_client.ask(messages))
         if messages:
-            latest = messages[-1]  # newest message (list is oldest→newest)
-            print(f"Replying to [{latest['id']}] {latest['author']}: {latest['content']!r}")
-            
-            await client.send_message(CHANNEL_ID, 'please 3')
+            print(messages[-1]['content'])
         else:
-            print('No messages found in channel.')
+            print('No messages found in channel to reply to.')
             
         await client.close()
 
