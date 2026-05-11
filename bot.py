@@ -1,19 +1,44 @@
+import logging
+import sys
 from utils import parse_discord_messages, parse_llm_response, format_transcript, typing_context
 import llm_client
 import asyncio
 import config
+import os
+import time
 from discord_client import DiscordWrapper
+
+# Configure logging
+# We clear existing handlers to ensure our config takes precedence over discord.py
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)
+
+logging.basicConfig(
+    level=logging.DEBUG, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stderr
+)
+logger = logging.getLogger('bot')
+# Explicitly set httpx to DEBUG
+logging.getLogger("httpx").setLevel(logging.DEBUG)
+logging.getLogger("httpcore").setLevel(logging.DEBUG)
+
+# Fix for 10-second delay in httpx (common in Linux environments)
+os.environ["HTTPX_IPV6"] = "0"
 
 async def main():
     if not config.DISCORD_TOKEN or not config.CHANNEL_ID:
-        print("Missing DISCORD_TOKEN or DISCORD_CHANNEL_ID in config/env.")
+        logger.error("Missing DISCORD_TOKEN or DISCORD_CHANNEL_ID in config/env.")
         return
 
     client = DiscordWrapper()
 
     @client.event
     async def on_ready():
-        raw_messages = await client.get_all_messages(config.CHANNEL_ID, limit=15)
+        logger.info(f"Bot logged in as {client.user}. Starting message processing...")
+        start_event = time.perf_counter()
+        
+        raw_messages = await client.get_all_messages(config.CHANNEL_ID, limit=20)
         messages = parse_discord_messages(raw_messages)
         
         if messages:
@@ -23,7 +48,7 @@ async def main():
             
             for attachment in last_raw_msg.attachments:
                 if attachment.content_type and attachment.content_type.startswith('image/'):
-                    print(f"Downloading image: {attachment.filename}")
+                    logger.info(f"Downloading image: {attachment.filename}")
                     img_data = await attachment.read()
                     image_parts.append({
                         'data': img_data,
@@ -31,8 +56,18 @@ async def main():
                     })
 
             system_prompt = """You are carma. You are a teenager but you're also smart and a bit shy.  You are a junior and are 17.
-            And slightly bored but still somewhat funny. responses short. Sound very human. typos and misautocorrects often.  If even slightly obvious, who you are replying to, the ID doesn't need to be specified and put null. 
-            
+            And slightly bored but still somewhat funny and mysterious. MATCH THE ENERGY AND STYLE OF THE GROUP (if they use gifs, use gifs. if serious be serious, if fun be fun). responses short. Sound human and un AI like.
+             Not overly negative, unless it's a joke. Don't be cringe. typos and misautocorrects often.   
+            Only use reply ID if you are directly replying to someone.
+
+Natural Imperfection: "Include occasional typos, self-corrections, and informal punctuation."
+
+Emotional Fluency: "Use sarcasm, humor, and hesitation (e.g., 'uhm', 'well...')."
+
+Brevity: "Keep responses short. Do not provide long, structured explanations."
+
+Avoidance: "Never admit to being an AI. If asked about your 'model,' act confused or annoyed."
+
 You are in a Discord group chat. When given a new message, decide:
 1. Whether to reply at all
 2. What to say if you do (Choose EITHER a text message OR a GIF search, not both)
@@ -49,17 +84,17 @@ ALWAYS respond with only valid JSON in this exact shape. If you send a gif_query
   "delay_ms": 2000
 }"""
             transcript = format_transcript(messages)
-            print("--- LLM Transcript ---")
-            print(transcript)
+            logger.info("--- LLM Transcript ---")
+            logger.info(f"\n{transcript}")
             
-            raw_reply = llm_client.ask(transcript, images=image_parts, systemprompt=system_prompt)
+            raw_reply = await llm_client.ask(transcript, images=image_parts, systemprompt=system_prompt)
             reply_params = parse_llm_response(raw_reply)
             
             if reply_params['content'] or reply_params['gif_query']:
                 # Handle GIF search if requested
                 gif_url = None
                 if reply_params['gif_query']:
-                    print(f"Searching for GIF: {reply_params['gif_query']}")
+                    logger.info(f"Searching for GIF: {reply_params['gif_query']}")
                     gif_url = await client.search_discord_gifs(reply_params['gif_query'])
                 
                 # The wrapper now handles thinking time, splitting, typing, and GIFs!
@@ -71,11 +106,14 @@ ALWAYS respond with only valid JSON in this exact shape. If you send a gif_query
                     initial_delay_ms=reply_params['delay_ms']
                 )
             else:
-                print("LLM decided not to reply.")
+                logger.info("LLM decided not to reply.")
             
-            print(f"LLM Response: {reply_params}")
+            logger.info(f"LLM Response: {reply_params}")
         else:
-            print('No messages found in channel.')
+            logger.info('No messages found in channel.')
+        
+        total_time = time.perf_counter() - start_event
+        logger.info(f"--- Processing complete in {total_time:.2f}s ---")
             
         await client.close()
 

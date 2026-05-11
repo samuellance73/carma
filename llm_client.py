@@ -1,6 +1,7 @@
 import logging
 import json
 import sys
+import time
 import config
 
 from google import genai
@@ -14,11 +15,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger('llm_client')
 
+# Enable debug logging for httpx to see low-level request/response timing
+logging.getLogger("httpx").setLevel(logging.DEBUG)
+
 # ── Client ────────────────────────────────────────────────────────────────────
 _client = genai.Client(api_key=config.GEMINI_API_KEY)
 
 # ── Core API function ─────────────────────────────────────────────────────────
-def ask(
+async def ask(
     prompt: str,
     *,
     images: list[dict] | None = None,
@@ -47,10 +51,12 @@ def ask(
     # Handle aliases
     system_instruction = system or systemprompt
 
+    # Disable AFC (Automatic Function Calling) to avoid unnecessary overhead and potential delays
     config_params = types.GenerateContentConfig(
         temperature=temperature,
         max_output_tokens=max_tokens,
         system_instruction=system_instruction,
+        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
     )
 
     # Build the contents list from optional history + current prompt
@@ -83,14 +89,25 @@ def ask(
         )
     )
 
-    logger.info(f"Calling Gemini API (model={model})")
+    logger.info(f"Calling Gemini API (model={model}). Payload: {len(prompt)} chars, {len(images or [])} images.")
+    start_time = time.perf_counter()
 
     try:
-        response = _client.models.generate_content(
+        # Use the async client (.aio) to avoid blocking the event loop
+        response = await _client.aio.models.generate_content(
             model=model,
             contents=contents,
             config=config_params,
         )
+        duration = time.perf_counter() - start_time
+        logger.info(f"Gemini API responded in {duration:.2f}s")
+        
+        # Log token usage if available
+        if hasattr(response, 'usage_metadata') and response.usage_metadata:
+            logger.info(f"Usage: prompt_tokens={response.usage_metadata.prompt_token_count}, "
+                        f"candidates_tokens={response.usage_metadata.candidates_token_count}, "
+                        f"total_tokens={response.usage_metadata.total_token_count}")
+            
         return response.text
     except Exception as e:
         logger.error(f"Error calling Gemini API: {str(e)}")

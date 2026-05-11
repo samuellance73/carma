@@ -1,9 +1,12 @@
 import discord
 import asyncio
 import random
+import logging
 import config
 from utils import calculate_typing_delay
 from discord.http import Route
+
+logger = logging.getLogger('discord_client')
 
 class DiscordWrapper(discord.Client):
     """
@@ -30,13 +33,13 @@ class DiscordWrapper(discord.Client):
             
             # The structure is a list of GIF objects
             if data and len(data) > 0:
-                # Pick a random GIF from the first 8 results, but favor the top ones
+                # Pick a random GIF from the first 5 results, but favor the top ones
                 # min(rand, rand) effectively skews the distribution toward 0
-                max_idx = min(len(data), 8)
+                max_idx = min(len(data), 5)
                 idx = min(random.randint(0, max_idx - 1), random.randint(0, max_idx - 1))
                 return data[idx].get('url')
         except Exception as e:
-            print(f"Internal GIF search failed: {e}")
+            logger.error(f"Internal GIF search failed: {e}")
         return None
 
     async def send_message(
@@ -88,17 +91,17 @@ class DiscordWrapper(discord.Client):
                 try:
                     reference = await channel.fetch_message(int(reply_to))
                     await channel.send(burst, reference=reference)
-                    print(f"Reply to {reply_to}: {burst}")
+                    logger.info(f"Reply to {reply_to}: {burst}")
                 except discord.NotFound:
                     await channel.send(burst)
-                    print(f"Sent (fallback): {burst}")
+                    logger.info(f"Sent (fallback): {burst}")
             else:
                 await channel.send(burst)
-                print(f"Sent: {burst}")
+                logger.info(f"Sent: {burst}")
 
         # 3. Send GIF if provided
         if gif_url:
             # Small human delay before sending the GIF
             await asyncio.sleep(random.uniform(1.0, 2.0))
             await channel.send(gif_url)
-            print(f"Sent GIF: {gif_url}")
+            logger.info(f"Sent GIF: {gif_url}")
