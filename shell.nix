@@ -4,10 +4,9 @@ pkgs.mkShell {
   buildInputs = [
     pkgs.python3
     pkgs.python3Packages.requests
-    pkgs.python3Packages.python-dotenv
-    pkgs.python3Packages.discordpy 
-    pkgs.python3Packages.curl-cffi 
+    pkgs.python3Packages.python-dotenvnix
     pkgs.python3Packages.google-genai
+    pkgs.uv  
 
   ];
 
