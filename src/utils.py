@@ -48,12 +48,22 @@ def format_transcript(messages: list[dict]) -> str:
     """
     Converts a list of parsed message dicts into a clean text transcript for the LLM.
     """
+    # Create a mapping for quick lookup of original messages (for quoting replies)
+    msg_map = {str(m.get('id')): m for m in messages}
+    
     formatted = []
     for msg in messages:
         author = msg.get('author', 'Unknown')
         content = msg.get('content', '')
         msg_id = msg.get('id', 'UnknownID')
         reply_to = msg.get('reply_to')
+        
+        # Replace 'Carma' with 'YOU' for clarity in the transcript
+        if author.lower() == 'carma':
+            author = 'YOU'
+        
+        # Replace 'carma' in content (case-insensitive)
+        content = re.sub(r'(?i)\bcarma\b', 'YOU', content)
         
         time_str = ""
         if 'timestamp' in msg:
@@ -74,7 +84,27 @@ def format_transcript(messages: list[dict]) -> str:
                 if desc:
                     image_descriptions.append(f"  [Image \"{a['filename']}\"]: {desc}")
 
-        reply_info = f" (replying to {reply_to})" if reply_to else ""
+        reply_info = ""
+        if reply_to:
+            orig_msg = msg_map.get(str(reply_to))
+            if orig_msg:
+                orig_author = orig_msg.get('author', 'Unknown')
+                if orig_author.lower() == 'carma':
+                    orig_author = 'YOU'
+                
+                orig_content = orig_msg.get('content', '')
+                # Clean the quote as well
+                orig_content = re.sub(r'(?i)\bcarma\b', 'YOU', orig_content)
+                
+                # Snippet if too long to keep transcript compact
+                if len(orig_content) > 60:
+                    orig_content = orig_content[:57] + "..."
+                
+                reply_info = f" (replying to {orig_author}: \"{orig_content}\")"
+            else:
+                # Fallback if original message is not in the provided history
+                reply_info = f" (replying to {reply_to})"
+
         formatted.append(f"[{msg_id}] {time_str}{author}{reply_info}: {content}{attachment_info}")
         formatted.extend(image_descriptions)
         

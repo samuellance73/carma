@@ -11,12 +11,17 @@ CHANNEL_ID = os.getenv('DISCORD_CHANNEL_ID')
 # ── LLM Configuration ───────────────────────────────────────────────────────
 # "Strong" model: Image-capable, multimodal (Gemini)
 STRONG_MODEL = os.getenv('LLM_STRONG_MODEL')
-STRONG_MODEL_API_KEY = os.getenv('LL_STRONG_API_KEY') or os.getenv('LLM_STRONG_API_KEY')
+_strong_key_env = os.getenv('LLM_STRONG_API_KEYS') or os.getenv('LL_STRONG_API_KEY') or os.getenv('LLM_STRONG_API_KEY') or ""
+STRONG_MODEL_API_KEYS = [k.strip() for k in _strong_key_env.split(',') if k.strip()]
 
 # "Weak" model: Fast, text-only (Groq)
 WEAK_MODEL = os.getenv('LLM_WEAK_MODEL')
-WEAK_MODEL_API_KEY = os.getenv('LLM_WEAK_API_KEY')
-WEAK_MODEL_API_KEY_2 = os.getenv('LLM_WEAK_API_KEY_2')  # Fallback if primary is rate-limited
+_weak_key_env = os.getenv('LLM_WEAK_API_KEYS') or os.getenv('LLM_WEAK_API_KEY') or ""
+WEAK_MODEL_API_KEYS = [k.strip() for k in _weak_key_env.split(',') if k.strip()]
+# Fallback if primary is rate-limited (legacy support)
+_weak_key_2 = os.getenv('LLM_WEAK_API_KEY_2')
+if _weak_key_2 and _weak_key_2.strip() not in WEAK_MODEL_API_KEYS:
+    WEAK_MODEL_API_KEYS.append(_weak_key_2.strip())
 
 # ── Behavior & Timing Settings ──────────────────────────────────────────────
 DISTRACTION_CHANCE = 0.15

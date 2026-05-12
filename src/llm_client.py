@@ -23,8 +23,20 @@ def _apply_key(model: str | None, api_key: str | None):
     elif "groq" in model.lower():
         os.environ["GROQ_API_KEY"] = api_key
 
-_apply_key(config.STRONG_MODEL, config.STRONG_MODEL_API_KEY)
-_apply_key(config.WEAK_MODEL, config.WEAK_MODEL_API_KEY)
+def _mask_key(api_key: str | None) -> str:
+    """Mask the API key for safe logging."""
+    if not api_key:
+        return "None"
+    if len(api_key) <= 8:
+        return "***"
+    return f"{api_key[:6]}...{api_key[-4:]}"
+
+if config.STRONG_MODEL_API_KEYS:
+    logger.info(f"Initialized STRONG model with {len(config.STRONG_MODEL_API_KEYS)} keys. Primary: {_mask_key(config.STRONG_MODEL_API_KEYS[0])}")
+    _apply_key(config.STRONG_MODEL, config.STRONG_MODEL_API_KEYS[0])
+if config.WEAK_MODEL_API_KEYS:
+    logger.info(f"Initialized WEAK model with {len(config.WEAK_MODEL_API_KEYS)} keys. Primary: {_mask_key(config.WEAK_MODEL_API_KEYS[0])}")
+    _apply_key(config.WEAK_MODEL, config.WEAK_MODEL_API_KEYS[0])
 
 async def ask(
     prompt: str,
@@ -81,6 +93,7 @@ async def ask(
     async def _call(api_key_override: str | None = None) -> str:
         """Inner call — optionally swap in a different API key."""
         if api_key_override:
+            logger.info(f"Applying API key {_mask_key(api_key_override)} for {model}")
             _apply_key(model, api_key_override)
 
         response = await litellm.acompletion(
@@ -101,23 +114,22 @@ async def ask(
 
         return response.choices[0].message.content
 
-    try:
-        return await _call()
-    except litellm.RateLimitError as e:
-        # Primary key hit rate limit — try secondary weak key if available
-        is_weak_model = model == config.WEAK_MODEL
-        secondary = config.WEAK_MODEL_API_KEY_2 if is_weak_model else None
+    keys_to_try = config.STRONG_MODEL_API_KEYS if model == config.STRONG_MODEL else config.WEAK_MODEL_API_KEYS
+    if not keys_to_try:
+        keys_to_try = [None] # Try with whatever is in environment
 
-        if secondary:
-            logger.warning(f"Rate limit hit on primary key. Retrying with secondary key...")
-            try:
-                return await _call(api_key_override=secondary)
-            except Exception as e2:
-                logger.error(f"Secondary key also failed: {e2}")
-                raise e2
-        else:
-            logger.error(f"Rate limit hit and no secondary key configured: {e}")
+    for attempt, key in enumerate(keys_to_try):
+        try:
+            logger.info(f"Attempt {attempt + 1}/{len(keys_to_try)}: Making request with key {_mask_key(key)}")
+            return await _call(api_key_override=key)
+        except litellm.RateLimitError as e:
+            if attempt < len(keys_to_try) - 1:
+                next_key = keys_to_try[attempt + 1]
+                logger.warning(f"Rate limit hit on key {_mask_key(key)} (Attempt {attempt + 1}). Swapping to next key: {_mask_key(next_key)}...")
+                continue
+            else:
+                logger.error(f"Rate limit hit on ALL {len(keys_to_try)} keys! Last key tried: {_mask_key(key)}. Error: {e}")
+                raise
+        except Exception as e:
+            logger.error(f"Error calling LiteLLM: {str(e)}")
             raise
-    except Exception as e:
-        logger.error(f"Error calling LiteLLM: {str(e)}")
-        raise

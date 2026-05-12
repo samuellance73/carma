@@ -28,7 +28,7 @@ _IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.tiff', 
 VISION_PROMPT = (
     "Describe this image in detail. "
     "Be extensive. List everything about the image in any way. All information on the image. THE DESCRIPTION SHOULD BE BETTER THAN IF A PERSON SAW THE IMAGE.  "
-    "Write in plain language — this description. One paragraph long."
+    "Write in plain language — this description. One-Two paragraph long. ANY TEXT in the image must be extracted."
     "will be used by someone who cannot see the image."
 )
 
