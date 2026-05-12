@@ -17,6 +17,17 @@ def setup_events(client):
         await client.set_presence()
         logger.info(f"Bot logged in as {client.user}. Listening for messages in channel {config.CHANNEL_ID}...")
 
+        # Startup check: act as if we just noticed the channel after coming online
+        delay = random.uniform(3.0, 8.0)
+        logger.info(f"Doing startup check in {delay:.1f}s...")
+        await asyncio.sleep(delay)
+
+        async with state.processing_lock:
+            try:
+                await process_messages_and_reply(client)
+            except Exception as e:
+                logger.error(f"Error during startup check: {e}")
+
     @client.event
     async def on_message(message):
         # 1. Ignore our own messages
