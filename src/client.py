@@ -42,11 +42,20 @@ class DiscordWrapper(discord.Client):
             
             # The structure is a list of GIF objects
             if data and len(data) > 0:
+                logger.info(f"GIF search for '{query}' returned {len(data)} results.")
                 # Pick a random GIF from the first 5 results, but favor the top ones
-                # min(rand, rand) effectively skews the distribution toward 0
                 max_idx = min(len(data), 5)
                 idx = min(random.randint(0, max_idx - 1), random.randint(0, max_idx - 1))
-                return data[idx].get('url')
+                
+                gif_data = data[idx]
+                # Try common URL fields
+                url = gif_data.get('url') or gif_data.get('proxy_url') or gif_data.get('gif_url')
+                if url:
+                    return url
+                else:
+                    logger.warning(f"GIF result at index {idx} has no known URL field. Data: {gif_data}")
+            else:
+                logger.info(f"GIF search for '{query}' returned no results.")
         except Exception as e:
             logger.error(f"Internal GIF search failed: {e}")
         return None
@@ -98,12 +107,17 @@ class DiscordWrapper(discord.Client):
             
             if reply_to is not None:
                 try:
-                    reference = await channel.fetch_message(int(reply_to))
-                    await channel.send(burst, reference=reference)
-                    logger.info(f"Reply to {reply_to}: {burst}")
-                except discord.NotFound:
+                    # Ensure it's a numeric ID before trying to fetch
+                    if str(reply_to).isdigit():
+                        reference = await channel.fetch_message(int(reply_to))
+                        await channel.send(burst, reference=reference)
+                        logger.info(f"Reply to {reply_to}: {burst}")
+                    else:
+                        logger.warning(f"Invalid reply_to ID: {reply_to}. Sending as normal message.")
+                        await channel.send(burst)
+                except (discord.NotFound, ValueError, TypeError) as e:
+                    logger.warning(f"Could not reply to {reply_to} ({e}). Sending as normal message.")
                     await channel.send(burst)
-                    logger.info(f"Sent (fallback): {burst}")
             else:
                 await channel.send(burst)
                 logger.info(f"Sent: {burst}")
@@ -112,5 +126,17 @@ class DiscordWrapper(discord.Client):
         if gif_url:
             # Small human delay before sending the GIF
             await asyncio.sleep(random.uniform(1.0, 2.0))
+            
+            # If we haven't sent any text, this GIF might need to be the reply
+            if not bursts and reply_to_message_id:
+                try:
+                    if str(reply_to_message_id).isdigit():
+                        reference = await channel.fetch_message(int(reply_to_message_id))
+                        await channel.send(gif_url, reference=reference)
+                        logger.info(f"Sent GIF as reply to {reply_to_message_id}: {gif_url}")
+                        return
+                except Exception as e:
+                    logger.warning(f"Could not reply with GIF: {e}")
+
             await channel.send(gif_url)
             logger.info(f"Sent GIF: {gif_url}")

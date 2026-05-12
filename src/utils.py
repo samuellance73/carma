@@ -123,5 +123,6 @@ def parse_llm_response(raw_response: str, message_id: str = None) -> dict:
         return {
             "content": "",
             "reply": None,
-            "delay_ms": 0
+            "delay_ms": 0,
+            "gif_query": None
         }

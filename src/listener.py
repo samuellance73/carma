@@ -33,7 +33,7 @@ def setup_events(client):
             return
 
         # 4. Wait 5-10 seconds to simulate noticing and reading
-        delay = random.uniform(5.0, 10.0)
+        delay = random.uniform(3.0, 7.0)
         logger.info(f"Message received from {message.author.name}. Waiting {delay:.1f}s before processing...")
         await asyncio.sleep(delay)
         
