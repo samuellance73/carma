@@ -2,8 +2,8 @@ import discord
 import asyncio
 import random
 import logging
-import config
-from utils import calculate_typing_delay
+from . import config
+from .utils import calculate_typing_delay
 from discord.http import Route
 
 logger = logging.getLogger('discord_client')

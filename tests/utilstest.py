@@ -1,6 +1,6 @@
-import utils
-import llm_client
-from discord_client import DiscordWrapper
+from src import utils
+from src import llm_client
+from src.discord_client import DiscordWrapper
 import os
 from dotenv import load_dotenv
 import asyncio 

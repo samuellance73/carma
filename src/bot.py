@@ -1,12 +1,12 @@
 import logging
 import sys
-from utils import parse_discord_messages, parse_llm_response, format_transcript, typing_context
-import llm_client
+from .utils import parse_discord_messages, parse_llm_response, format_transcript, typing_context
+from . import llm_client
 import asyncio
-import config
+from . import config
 import os
 import time
-from discord_client import DiscordWrapper
+from .discord_client import DiscordWrapper
 
 # Configure logging
 # We clear existing handlers to ensure our config takes precedence over discord.py

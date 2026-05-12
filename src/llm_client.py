@@ -2,7 +2,7 @@ import logging
 import json
 import sys
 import time
-import config
+from . import config
 
 from google import genai
 from google.genai import types

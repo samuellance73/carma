@@ -1,7 +1,7 @@
 import json
 import discord
 import random
-import config
+from . import config
 from contextlib import asynccontextmanager
 
 def parse_discord_messages(messages) -> list[dict]:

@@ -1,8 +1,8 @@
 import asyncio
-import config
+from . import config
 
-from discord_client import DiscordWrapper
-from utils import parse_discord_messages
+from .discord_client import DiscordWrapper
+from .utils import parse_discord_messages
 
 async def main():
     if not config.DISCORD_TOKEN or not config.CHANNEL_ID:

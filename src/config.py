@@ -9,8 +9,8 @@ DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 CHANNEL_ID = os.getenv('DISCORD_CHANNEL_ID')
 
 # ── Gemini Configuration ────────────────────────────────────────────────────
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.1-flash-lite')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY') or os.getenv('LLM_IMAGE_API_KEY')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL') or os.getenv('LLM_IMAGE_MODEL', 'gemini-2.0-flash-exp')
 
 # ── Behavior & Timing Settings ──────────────────────────────────────────────
 # Chance of a random "distraction" pause between message bursts (0.0 to 1.0)
