@@ -37,6 +37,7 @@ async def main():
 
     @client.event
     async def on_ready():
+        await client.set_presence()
         logger.info(f"Bot logged in as {client.user}. Starting message processing...")
         start_event = time.perf_counter()
         

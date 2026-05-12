@@ -16,6 +16,15 @@ class DiscordWrapper(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    async def set_presence(self):
+        # Create the 'Playing' activity
+        activity = discord.Game(name="Roblox")
+        
+        # Apply the activity and set status to 'online'
+        await self.change_presence(status=discord.Status.online, activity=activity)
+        
+        logger.info(f"Logged in as {self.user} and set status to Playing Roblox")
+
     async def get_all_messages(self, channel_id: int | str, limit: int = 50):
         """Fetch message objects from Discord."""
         channel = await self.fetch_channel(int(channel_id))

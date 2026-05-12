@@ -1,19 +1,33 @@
 import logging
 import json
-import sys
+import os
 import time
+import litellm
 from src import config
 
-from google import genai
-from google.genai import types
-
+# Set up logging for this module
 logger = logging.getLogger('llm_client')
-logging.getLogger("httpx").setLevel(logging.WARNING)
 
-# ── Client ────────────────────────────────────────────────────────────────────
-_client = genai.Client(api_key=config.GEMINI_API_KEY)
+# Configure LiteLLM logging
+litellm.set_verbose = True 
+logging.getLogger("litellm").setLevel(logging.INFO)
 
-# ── Core API function ─────────────────────────────────────────────────────────
+# Set environment variables for LiteLLM based on our Strong/Weak naming
+# We need to set the actual provider keys that LiteLLM expects
+if config.STRONG_MODEL_API_KEY:
+    # If it's a gemini model, set GEMINI_API_KEY
+    if "gemini" in (config.STRONG_MODEL or "").lower():
+        os.environ["GEMINI_API_KEY"] = config.STRONG_MODEL_API_KEY
+    # If it's a groq model, set GROQ_API_KEY
+    elif "groq" in (config.STRONG_MODEL or "").lower():
+        os.environ["GROQ_API_KEY"] = config.STRONG_MODEL_API_KEY
+
+if config.WEAK_MODEL_API_KEY:
+    if "gemini" in (config.WEAK_MODEL or "").lower():
+        os.environ["GEMINI_API_KEY"] = config.WEAK_MODEL_API_KEY
+    elif "groq" in (config.WEAK_MODEL or "").lower():
+        os.environ["GROQ_API_KEY"] = config.WEAK_MODEL_API_KEY
+
 async def ask(
     prompt: str,
     *,
@@ -21,86 +35,70 @@ async def ask(
     system: str | None = None,
     systemprompt: str | None = None,
     history: list[dict] | None = None,
-    model: str = config.GEMINI_MODEL,
+    model: str | None = None,
     temperature: float = 1.0,
     max_tokens: int = 1024,
 ) -> str:
-    """Send a text prompt and optional images to Gemini and return the response text.
-
-    Args:
-        prompt:      The text message / transcript to send.
-        images:      Optional list of dicts with 'data' (bytes) and 'mime_type'.
-        system:      Optional system instruction to set model behaviour.
-        systemprompt: Alias for 'system'.
-        history:     Optional prior conversation turns.
-        model:       Gemini model ID.
-        temperature: Sampling temperature.
-        max_tokens:  Maximum output tokens.
-
-    Returns:
-        The model's response as a plain string.
     """
-    # Handle aliases
+    Send a prompt (and optional images) to an LLM via LiteLLM.
+    Automatically chooses STRONG_MODEL if images are present, else WEAK_MODEL.
+    """
     system_instruction = system or systemprompt
 
-    # Disable AFC (Automatic Function Calling) to avoid unnecessary overhead and potential delays
-    config_params = types.GenerateContentConfig(
-        temperature=temperature,
-        max_output_tokens=max_tokens,
-        system_instruction=system_instruction,
-        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
-    )
+    # Auto-select model if not provided
+    if model is None:
+        if images:
+            model = config.STRONG_MODEL
+        else:
+            model = config.WEAK_MODEL
 
-    # Build the contents list from optional history + current prompt
-    contents: list[types.Content] = []
-    for turn in (history or []):
-        contents.append(
-            types.Content(
-                role=turn['role'],
-                parts=[types.Part(text=turn['text'])],
-            )
-        )
+    messages = []
+    if system_instruction:
+        messages.append({"role": "system", "content": system_instruction})
     
-    # Current turn
-    parts = [types.Part(text=prompt)]
+    if history:
+        for turn in history:
+            messages.append({"role": turn['role'], "content": turn['text']})
+
+    # Prepare user content
     if images:
+        content = [{"type": "text", "text": prompt}]
         for img in images:
-            parts.append(
-                types.Part(
-                    inline_data=types.Blob(
-                        data=img['data'],
-                        mime_type=img['mime_type']
-                    )
-                )
-            )
+            import base64
+            base64_image = base64.b64encode(img['data']).decode('utf-8')
+            content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:{img['mime_type']};base64,{base64_image}"
+                }
+            })
+        messages.append({"role": "user", "content": content})
+    else:
+        # Simple text content for non-multimodal models (some might fail with list-style content)
+        messages.append({"role": "user", "content": prompt})
 
-    contents.append(
-        types.Content(
-            role='user',
-            parts=parts,
-        )
-    )
-
-    logger.info(f"Calling Gemini API (model={model}). Payload: {len(prompt)} chars, {len(images or [])} images.")
+    logger.info(f"Calling LiteLLM (model={model}). Payload: {len(prompt)} chars, {len(images or [])} images.")
     start_time = time.perf_counter()
 
     try:
-        # Use the async client (.aio) to avoid blocking the event loop
-        response = await _client.aio.models.generate_content(
+        response = await litellm.acompletion(
             model=model,
-            contents=contents,
-            config=config_params,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
-        duration = time.perf_counter() - start_time
-        logger.info(f"Gemini API responded in {duration:.2f}s")
         
-        # Log token usage if available
-        if hasattr(response, 'usage_metadata') and response.usage_metadata:
-            logger.info(f"Usage: prompt_tokens={response.usage_metadata.prompt_token_count}, "
-                        f"candidates_tokens={response.usage_metadata.candidates_token_count}, "
-                        f"total_tokens={response.usage_metadata.total_token_count}")
-            
-        return response.text
+        duration = time.perf_counter() - start_time
+        logger.info(f"LiteLLM responded in {duration:.2f}s using {response.model}")
+        
+        # Log token usage
+        usage = getattr(response, 'usage', None)
+        if usage:
+            logger.info(f"Usage: prompt_tokens={usage.prompt_tokens}, "
+                        f"completion_tokens={usage.completion_tokens}, "
+                        f"total_tokens={usage.total_tokens}")
+
+        return response.choices[0].message.content
     except Exception as e:
-        logger.error(f"Error calling Gemini API: {str(e)}")
+        logger.error(f"Error calling LiteLLM: {str(e)}")
         raise
