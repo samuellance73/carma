@@ -3,7 +3,7 @@ import time
 from src.utils import parse_discord_messages, parse_llm_response, format_transcript
 from src import llm_client
 from src import config
-from src.prompts import SYSTEM_PROMPT
+from src.prompts import get_system_prompt
 
 logger = logging.getLogger('brain')
 
@@ -36,7 +36,7 @@ async def process_messages_and_reply(client):
         logger.info(f"\n{transcript}")
         
         # Ask the LLM
-        raw_reply = await llm_client.ask(transcript, images=image_parts, systemprompt=SYSTEM_PROMPT)
+        raw_reply = await llm_client.ask(transcript, images=image_parts, systemprompt=get_system_prompt())
         reply_params = parse_llm_response(raw_reply)
         
         if reply_params['content'] or reply_params['gif_query']:

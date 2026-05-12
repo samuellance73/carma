@@ -16,6 +16,7 @@ STRONG_MODEL_API_KEY = os.getenv('LL_STRONG_API_KEY') or os.getenv('LLM_STRONG_A
 # "Weak" model: Fast, text-only (Groq)
 WEAK_MODEL = os.getenv('LLM_WEAK_MODEL')
 WEAK_MODEL_API_KEY = os.getenv('LLM_WEAK_API_KEY')
+WEAK_MODEL_API_KEY_2 = os.getenv('LLM_WEAK_API_KEY_2')  # Fallback if primary is rate-limited
 
 # ── Behavior & Timing Settings ──────────────────────────────────────────────
 DISTRACTION_CHANCE = 0.15
