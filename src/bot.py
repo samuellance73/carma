@@ -1,12 +1,12 @@
 import logging
 import sys
-from .utils import parse_discord_messages, parse_llm_response, format_transcript, typing_context
-from . import llm_client
+from src.utils import parse_discord_messages, parse_llm_response, format_transcript, typing_context
+from src import llm_client
 import asyncio
-from . import config
+from src import config
 import os
 import time
-from .discord_client import DiscordWrapper
+from src.discord_client import DiscordWrapper
 
 # Configure logging
 # We clear existing handlers to ensure our config takes precedence over discord.py
@@ -14,14 +14,16 @@ for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
 
 logging.basicConfig(
-    level=logging.DEBUG, 
+    level=logging.INFO, 
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     stream=sys.stderr
 )
 logger = logging.getLogger('bot')
-# Explicitly set httpx to DEBUG
-logging.getLogger("httpx").setLevel(logging.DEBUG)
-logging.getLogger("httpcore").setLevel(logging.DEBUG)
+
+# Silence verbose third-party loggers
+logging.getLogger("discord").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # Fix for 10-second delay in httpx (common in Linux environments)
 os.environ["HTTPX_IPV6"] = "0"

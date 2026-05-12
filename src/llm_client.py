@@ -2,21 +2,13 @@ import logging
 import json
 import sys
 import time
-from . import config
+from src import config
 
 from google import genai
 from google.genai import types
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    stream=sys.stderr
-)
 logger = logging.getLogger('llm_client')
-
-# Enable debug logging for httpx to see low-level request/response timing
-logging.getLogger("httpx").setLevel(logging.DEBUG)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # ── Client ────────────────────────────────────────────────────────────────────
 _client = genai.Client(api_key=config.GEMINI_API_KEY)

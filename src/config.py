@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 
-# Load .env file
+# Load .env file, ensuring it overrides existing environment variables
 load_dotenv()
 
 # ── Discord Configuration ───────────────────────────────────────────────────
