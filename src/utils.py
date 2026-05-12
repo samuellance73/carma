@@ -1,7 +1,11 @@
 import json
 import discord
 import random
+import re
+import os
+import logging
 from src import config
+from src import image_cache
 from contextlib import asynccontextmanager
 
 def parse_discord_messages(messages) -> list[dict]:
@@ -22,6 +26,7 @@ def parse_discord_messages(messages) -> list[dict]:
         for attachment in msg.attachments:
             if attachment.content_type and attachment.content_type.startswith('image/'):
                 attachments.append({
+                    'id': str(attachment.id),
                     'url': attachment.url,
                     'content_type': attachment.content_type,
                     'filename': attachment.filename
@@ -59,12 +64,19 @@ def format_transcript(messages: list[dict]) -> str:
 
         attachments = msg.get('attachments', [])
         attachment_info = ""
+        image_descriptions = []
         if attachments:
             filenames = [a['filename'] for a in attachments]
             attachment_info = f" (Attachments: {', '.join(filenames)})"
+            # Inject cached image descriptions
+            for a in attachments:
+                desc = image_cache.get_description(a.get('id', ''))
+                if desc:
+                    image_descriptions.append(f"  [Image \"{a['filename']}\"]: {desc}")
 
         reply_info = f" (replying to {reply_to})" if reply_to else ""
         formatted.append(f"[{msg_id}] {time_str}{author}{reply_info}: {content}{attachment_info}")
+        formatted.extend(image_descriptions)
         
     return "\n".join(formatted)
 
@@ -93,18 +105,35 @@ def calculate_typing_delay(text: str) -> float:
 
 def parse_llm_response(raw_response: str, message_id: str = None) -> dict:
     """
-    Takes the raw JSON string from the LLM and returns a structured dict.
+    Takes the raw response from the LLM, extracts the JSON, and returns a structured dict.
     """
+    logger = logging.getLogger('utils.parser')
+    
+    if not raw_response:
+        logger.error("Received empty response from LLM.")
+        return {
+            "content": "",
+            "reply": None,
+            "delay_ms": 0,
+            "gif_query": None,
+            "reaction": None
+        }
+
+    clean_response = raw_response.strip()
+    
+    # 1. Try to find JSON inside code blocks if present
+    import re
+    json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", clean_response, re.DOTALL)
+    if json_match:
+        clean_response = json_match.group(1).strip()
+    else:
+        # 2. If no code blocks, try to find the first '{' and last '}'
+        start = clean_response.find('{')
+        end = clean_response.rfind('}')
+        if start != -1 and end != -1 and end > start:
+            clean_response = clean_response[start:end+1].strip()
+
     try:
-        clean_response = raw_response.strip()
-        if clean_response.startswith("```"):
-            lines = clean_response.splitlines()
-            if lines[0].startswith("```"):
-                lines = lines[1:]
-            if lines[-1].startswith("```"):
-                lines = lines[:-1]
-            clean_response = "\n".join(lines).strip()
-        
         data = json.loads(clean_response)
         
         reply_target = data.get("reply_id")
@@ -113,14 +142,17 @@ def parse_llm_response(raw_response: str, message_id: str = None) -> dict:
         
         return {
             "content": data.get("message", ""),
-            "reply": reply_target,
+            "reply": str(reply_target) if reply_target else None,
             "delay_ms": data.get("delay_ms", 0),
             "gif_query": data.get("gif_query"),
             "reaction": data.get("reaction")
         }
     except Exception as e:
-        import logging
-        logging.error(f"Failed to parse LLM response as JSON: {e}")
+        logger.error(f"Failed to parse LLM response as JSON: {e}")
+        logger.error(f"Raw response (first 500 chars): {raw_response[:500]}...")
+        if len(raw_response) > 500:
+             logger.error(f"Raw response (last 500 chars): ...{raw_response[-500:]}")
+        
         return {
             "content": "",
             "reply": None,

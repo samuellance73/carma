@@ -3,6 +3,7 @@ import time
 from src.utils import parse_discord_messages, parse_llm_response, format_transcript
 from src import llm_client
 from src import config
+from src import image_cache
 from src.prompts import get_system_prompt
 
 logger = logging.getLogger('brain')
@@ -18,25 +19,15 @@ async def process_messages_and_reply(client):
     messages = parse_discord_messages(raw_messages)
     
     if messages:
-        # Check for images in the most recent message
-        last_raw_msg = raw_messages[0] # History is returned newest first by history()
-        image_parts = []
-        
-        for attachment in last_raw_msg.attachments:
-            if attachment.content_type and attachment.content_type.startswith('image/'):
-                logger.info(f"Downloading image: {attachment.filename}")
-                img_data = await attachment.read()
-                image_parts.append({
-                    'data': img_data,
-                    'mime_type': attachment.content_type
-                })
+        # Describe any images in the message window (skips already-cached ones)
+        await image_cache.process_bulk_images(raw_messages)
 
         transcript = format_transcript(messages)
         logger.info("--- LLM Transcript ---")
         logger.info(f"\n{transcript}")
         
-        # Ask the LLM
-        raw_reply = await llm_client.ask(transcript, images=image_parts, systemprompt=get_system_prompt())
+        # Ask the LLM (always text-only; image descriptions are in the transcript)
+        raw_reply = await llm_client.ask(transcript, systemprompt=get_system_prompt())
         reply_params = parse_llm_response(raw_reply)
         
         if reply_params['content'] or reply_params['gif_query'] or reply_params['reaction']:

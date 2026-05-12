@@ -9,8 +9,8 @@ from src import config
 logger = logging.getLogger('llm_client')
 
 # Configure LiteLLM logging
-litellm.set_verbose = True 
-logging.getLogger("litellm").setLevel(logging.INFO)
+os.environ['LITELLM_LOG'] = 'INFO'
+logging.getLogger("litellm").setLevel(logging.WARNING)
 
 # Set environment variables for LiteLLM based on our Strong/Weak naming
 # We need to set the actual provider keys that LiteLLM expects
@@ -35,7 +35,7 @@ async def ask(
     history: list[dict] | None = None,
     model: str | None = None,
     temperature: float = 1.0,
-    max_tokens: int = 1024,
+    max_tokens: int = 2048,
 ) -> str:
     """
     Send a prompt (and optional images) to an LLM via LiteLLM.

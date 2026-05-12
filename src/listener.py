@@ -3,6 +3,7 @@ import random
 import logging
 from src import config
 from src import state
+from src import image_cache
 from src.brain import process_messages_and_reply
 
 logger = logging.getLogger('listener')
@@ -43,10 +44,14 @@ def setup_events(client):
             logger.info("Already processing a message, ignoring new event to prevent duplication.")
             return
 
-        # 4. Wait 5-10 seconds to simulate noticing and reading
+        # 4. Eagerly process any images in this message (runs alongside the delay)
         delay = random.uniform(3.0, 7.0)
         logger.info(f"Message received from {message.author.name}. Waiting {delay:.1f}s before processing...")
-        await asyncio.sleep(delay)
+
+        await asyncio.gather(
+            image_cache.process_message_images(message),
+            asyncio.sleep(delay),
+        )
         
         # 5. Acquire the lock and process
         async with state.processing_lock:
