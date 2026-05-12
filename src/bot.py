@@ -28,6 +28,9 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 # Fix for 10-second delay in httpx (common in Linux environments)
 os.environ["HTTPX_IPV6"] = "0"
 
+
+
+
 async def main():
     if not config.DISCORD_TOKEN or not config.CHANNEL_ID:
         logger.error("Missing DISCORD_TOKEN or DISCORD_CHANNEL_ID in config/env.")
