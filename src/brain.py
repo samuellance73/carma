@@ -39,21 +39,27 @@ async def process_messages_and_reply(client):
         raw_reply = await llm_client.ask(transcript, images=image_parts, systemprompt=get_system_prompt())
         reply_params = parse_llm_response(raw_reply)
         
-        if reply_params['content'] or reply_params['gif_query']:
+        if reply_params['content'] or reply_params['gif_query'] or reply_params['reaction']:
+            # Handle emoji reaction if requested
+            if reply_params['reaction']:
+                react_target = reply_params['reply'] or messages[-1]['id']
+                await client.add_reaction(config.CHANNEL_ID, react_target, reply_params['reaction'])
+
             # Handle GIF search if requested
             gif_url = None
             if reply_params['gif_query']:
                 logger.info(f"Searching for GIF: {reply_params['gif_query']}")
                 gif_url = await client.search_discord_gifs(reply_params['gif_query'])
             
-            # Send the message using the client
-            await client.send_message(
-                config.CHANNEL_ID, 
-                reply_params['content'], 
-                gif_url=gif_url,
-                reply_to_message_id=reply_params['reply'],
-                initial_delay_ms=reply_params['delay_ms']
-            )
+            # Send the message using the client (only if there's text/gif to send)
+            if reply_params['content'] or gif_url:
+                await client.send_message(
+                    config.CHANNEL_ID, 
+                    reply_params['content'], 
+                    gif_url=gif_url,
+                    reply_to_message_id=reply_params['reply'],
+                    initial_delay_ms=reply_params['delay_ms']
+                )
         else:
             logger.info("LLM decided not to reply.")
         

@@ -115,7 +115,8 @@ def parse_llm_response(raw_response: str, message_id: str = None) -> dict:
             "content": data.get("message", ""),
             "reply": reply_target,
             "delay_ms": data.get("delay_ms", 0),
-            "gif_query": data.get("gif_query")
+            "gif_query": data.get("gif_query"),
+            "reaction": data.get("reaction")
         }
     except Exception as e:
         import logging
@@ -124,5 +125,6 @@ def parse_llm_response(raw_response: str, message_id: str = None) -> dict:
             "content": "",
             "reply": None,
             "delay_ms": 0,
-            "gif_query": None
+            "gif_query": None,
+            "reaction": None
         }

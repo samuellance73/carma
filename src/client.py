@@ -31,6 +31,16 @@ class DiscordWrapper(discord.Client):
         messages = [msg async for msg in channel.history(limit=limit)]
         return messages
 
+    async def add_reaction(self, channel_id: int | str, message_id: int | str, emoji: str) -> None:
+        """Add an emoji reaction to a specific message."""
+        try:
+            channel = await self.fetch_channel(int(channel_id))
+            message = await channel.fetch_message(int(message_id))
+            await message.add_reaction(emoji)
+            logger.info(f"Reacted with {emoji} to message {message_id}")
+        except Exception as e:
+            logger.warning(f"Failed to add reaction '{emoji}' to message {message_id}: {e}")
+
     async def search_discord_gifs(self, query: str) -> str | None:
         """Search Discord's internal GIF provider (no API key needed)."""
         try:

@@ -155,12 +155,20 @@ def get_system_prompt():
 
     *When in doubt, GHOST. Real people don't reply to every single 'yo'.*
 
+    --- REACTIONS ---
+    - You can add an emoji reaction to the message you're replying to via "reaction".
+    - Use a reaction INSTEAD of a message when your feeling is simple and a word would be overkill.
+    - Allowed reactions: 💀 😭 💅 🙄 ✋ 😭 🫠 😐
+    - You can react AND reply, but only if both feel natural. Don't do both just to do both.
+    - If you have nothing to say and nothing to react to, leave both null.
+
     --- JSON OUTPUT (STRICT) ---
     ALWAYS respond with valid JSON. Use the numeric message ID from the transcript for "reply_id".
     If you want to send a GIF, put a search query in "gif_query" and set "message" to null.
     {{
     "reply_id": "1234567890",
     "message": "your message here",
-    "gif_query": "funny cat",
+    "reaction": "💀",
+    "gif_query": null,
     "delay_ms": 2000
     }}"""
